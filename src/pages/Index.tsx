@@ -10,9 +10,18 @@ const Index = () => {
 
   const handleFileLoaded = async (file: File) => {
     try {
+      console.log(`Index: Reading file ${file.name}, size: ${file.size} bytes`);
       const text = await file.text();
+      console.log(`Index: File content length: ${text.length} characters`);
+      
       const data = parseCSV(text);
       console.log("Index: Loaded CSV with", data.length, "records");
+      
+      if (data.length > 0) {
+        console.log("Index: First record sample:", data[0]);
+        console.log("Index: Last record sample:", data[data.length - 1]);
+      }
+      
       setOriginalData(data);
     } catch (error) {
       console.error("Error parsing CSV:", error);

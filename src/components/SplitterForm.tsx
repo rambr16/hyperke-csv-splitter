@@ -37,7 +37,13 @@ const SplitterForm: React.FC<SplitterFormProps> = ({ onFileLoaded }) => {
     setHasProcessed(false);
     
     try {
+      console.log(`Reading file: ${selectedFile.name}, size: ${selectedFile.size} bytes`);
       const text = await selectedFile.text();
+      console.log(`File content length: ${text.length} characters`);
+      
+      // Log the first ~200 characters to debug format issues
+      console.log(`First part of file: ${text.substring(0, 200)}...`);
+      
       const data = parseCSV(text);
       setCsvData(data);
       
@@ -45,6 +51,7 @@ const SplitterForm: React.FC<SplitterFormProps> = ({ onFileLoaded }) => {
       
       if (data.length > 0) {
         setHeaders(Object.keys(data[0]));
+        console.log("CSV headers:", Object.keys(data[0]));
       }
       
       if (onFileLoaded) {
