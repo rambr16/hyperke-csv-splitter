@@ -1,4 +1,3 @@
-
 import React from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
@@ -152,46 +151,26 @@ const SplitterForm: React.FC<SplitterFormProps> = ({ onFileLoaded }) => {
     setIsLoading(true);
     
     try {
-      // Process each configuration and combine results
-      const allProcessedData: Record<string, Record<string, string>[]> = {};
-      
-      // Filter out empty rows
-      const validConfigs = splitConfigs.filter(config => 
-        config.accountName.trim() !== "" && config.sentType.trim() !== ""
-      );
+      // Filter out empty rows and convert to required format
+      const validConfigs = splitConfigs
+        .filter(config => config.accountName.trim() !== "" && config.sentType.trim() !== "")
+        .map(config => ({
+          accountName: config.accountName.trim(),
+          sentType: config.sentType.trim(),
+          splitSize: config.splitSize.trim() !== "" ? parseInt(config.splitSize.trim()) : 0
+        }));
       
       console.log("Processing with configurations:", validConfigs);
       
-      for (const config of validConfigs) {
-        const accountName = config.accountName.trim();
-        const sentType = config.sentType.trim();
-        const splitSize = config.splitSize.trim() !== "" ? parseInt(config.splitSize.trim()) : 0;
-        
-        console.log(`Processing config: account=${accountName}, sentType=${sentType}, splitSize=${splitSize}`);
-        
-        // For each config, we create a separate split
-        const result = splitData(
-          csvData, 
-          [sentType], 
-          accountName,
-          splitSize > 0 ? [splitSize] : []
-        );
-        
-        console.log(`Split result for ${accountName}_${sentType}:`, result);
-        
-        // Merge results
-        Object.keys(result).forEach(key => {
-          const combinedKey = `${accountName}_${key}`;
-          allProcessedData[combinedKey] = result[key];
-        });
-      }
+      // Process all configurations at once with the new splitData function
+      const result = splitData(csvData, validConfigs);
       
-      setProcessedData(allProcessedData);
+      setProcessedData(result);
       setHasProcessed(true);
       
       toast({
         title: "Processing complete",
-        description: `Split ${csvData.length} records into ${Object.keys(allProcessedData).length} files`,
+        description: `Split ${csvData.length} records into ${Object.keys(result).length} files`,
       });
     } catch (error) {
       console.error("Processing error:", error);

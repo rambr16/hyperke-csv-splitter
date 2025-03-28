@@ -95,124 +95,105 @@ export const objectsToCSV = (data: Record<string, string>[], headers?: string[])
   return csvString;
 };
 
-// Split data based on sent types and optional split sizes
+// Split data based on configurations with various split size handling scenarios
 export const splitData = (
   data: Record<string, string>[], 
-  sentTypes: string[],
-  accountName: string,
-  splitSizes: number[] = []
+  configs: { accountName: string; sentType: string; splitSize: number; }[]
 ): Record<string, Record<string, string>[]> => {
   const result: Record<string, Record<string, string>[]> = {};
-  
-  // Initialize result object with empty arrays for each sent type
-  sentTypes.forEach(type => {
-    result[type] = [];
-  });
   
   // If no data to split, return empty result
   if (data.length === 0) {
     return result;
   }
   
-  console.log(`splitData called with ${data.length} records, sentTypes: ${sentTypes.join(',')}, account: ${accountName}, splitSizes: ${splitSizes.join(',') || 'none'}`);
+  console.log(`splitData called with ${data.length} records and ${configs.length} configurations`);
   
-  // Special handling for single sent type to ensure at least two output files
-  if (sentTypes.length === 1 && splitSizes.length <= 1) {
-    const sentType = sentTypes[0];
-    let splitSize: number;
+  // Process each configuration
+  let startIndex = 0;
+  let nonZeroSplitSizesCount = configs.filter(c => c.splitSize > 0).length;
+  let configsWithoutSplitSizeCount = configs.filter(c => c.splitSize === 0).length;
+  
+  // Special case: If we have all split sizes provided but they don't add up to the total,
+  // we need to create an additional "remainder" file
+  let totalSpecifiedRecords = configs.reduce((sum, config) => sum + (config.splitSize > 0 ? config.splitSize : 0), 0);
+  let needsRemainder = totalSpecifiedRecords > 0 && totalSpecifiedRecords < data.length && nonZeroSplitSizesCount === configs.length;
+  
+  // Assign records to each split based on the configuration
+  configs.forEach((config, index) => {
+    const { accountName, sentType, splitSize } = config;
     
-    // Determine the split size
-    if (splitSizes.length === 1 && splitSizes[0] > 0) {
-      splitSize = splitSizes[0];
+    // Determine the number of records for this split
+    let recordsForThisSplit: number;
+    
+    if (splitSize > 0) {
+      // Use the specified split size, but don't exceed available records
+      recordsForThisSplit = Math.min(splitSize, data.length - startIndex);
+    } else if (configsWithoutSplitSizeCount > 0) {
+      // Distribute remaining records evenly among configs without split sizes
+      const remainingRecords = data.length - totalSpecifiedRecords;
+      recordsForThisSplit = Math.ceil(remainingRecords / configsWithoutSplitSizeCount);
+      configsWithoutSplitSizeCount--; // Decrement for next iteration
     } else {
-      // Default to half the data when no split size is provided
-      splitSize = Math.ceil(data.length / 2);
+      // Default behavior: if no split sizes specified at all, distribute evenly
+      recordsForThisSplit = Math.ceil(data.length / configs.length);
     }
     
-    console.log(`Single sent type with ${splitSize} split size (out of ${data.length} total records)`);
+    // Ensure we don't exceed available records
+    recordsForThisSplit = Math.min(recordsForThisSplit, data.length - startIndex);
     
-    // Generate a second sent type for the remainder
-    const secondSentType = `${sentType}_remainder`;
-    result[secondSentType] = [];
+    console.log(`Split for ${accountName}_${sentType}: ${recordsForThisSplit} records starting at index ${startIndex}`);
     
-    // Split the first part according to the specified split size
-    const firstPart = data.slice(0, splitSize);
-    firstPart.forEach(row => {
-      result[sentType].push({ ...row, account: accountName, sent: sentType });
-    });
+    // Create the split and add to results
+    const key = `${accountName}_${sentType}`;
+    result[key] = [];
     
-    // Put the remainder in the second sent type
-    const secondPart = data.slice(splitSize);
-    secondPart.forEach(row => {
-      result[secondSentType].push({ ...row, account: accountName, sent: secondSentType });
-    });
+    // Add the records to this split
+    for (let i = startIndex; i < startIndex + recordsForThisSplit && i < data.length; i++) {
+      result[key].push({
+        ...data[i],
+        account: accountName,
+        sent: sentType
+      });
+    }
     
-    console.log(`Split into ${result[sentType].length} records for ${sentType} and ${result[secondSentType].length} records for ${secondSentType}`);
-    return result;
-  }
+    // Move the index for the next split
+    startIndex += recordsForThisSplit;
+    
+    // Special case: When only one configuration is provided, create a remainder split
+    if (configs.length === 1 && startIndex < data.length) {
+      const remainderKey = `${accountName}_${sentType}_remainder`;
+      result[remainderKey] = [];
+      
+      for (let i = startIndex; i < data.length; i++) {
+        result[remainderKey].push({
+          ...data[i],
+          account: accountName,
+          sent: `${sentType}_remainder`
+        });
+      }
+      
+      console.log(`Created remainder split ${remainderKey} with ${data.length - startIndex} records`);
+      startIndex = data.length; // Update startIndex to avoid further processing
+    }
+  });
   
-  // Handle multiple sent types
-  // Handle the case when no split sizes are provided (even distribution)
-  if (splitSizes.length === 0) {
-    const calculatedSplitSize = Math.ceil(data.length / sentTypes.length);
-    console.log(`No split sizes provided. Using calculated size of ${calculatedSplitSize} per sent type`);
+  // If we've processed all configs but still have records left and all configs had split sizes,
+  // create a remainder split using the last config's information
+  if (startIndex < data.length && needsRemainder) {
+    const lastConfig = configs[configs.length - 1];
+    const remainderKey = `${lastConfig.accountName}_${lastConfig.sentType}_remainder`;
+    result[remainderKey] = [];
     
-    // Distribute rows among sent types
-    data.forEach((row, index) => {
-      const typeIndex = Math.floor(index / calculatedSplitSize);
-      // Make sure we don't exceed the array bounds
-      const sentType = typeIndex < sentTypes.length ? sentTypes[typeIndex] : sentTypes[sentTypes.length - 1];
-      
-      // Add account and sent columns to the row
-      const newRow = { ...row, account: accountName, sent: sentType };
-      result[sentType].push(newRow);
-    });
-  } 
-  // Handle the case with specific split sizes
-  else {
-    let currentIndex = 0;
-    
-    // Process each sent type with its corresponding split size
-    for (let i = 0; i < sentTypes.length; i++) {
-      const sentType = sentTypes[i];
-      let splitSize: number;
-      
-      // Handle different split size scenarios
-      if (i < splitSizes.length) {
-        splitSize = splitSizes[i];
-      } else if (splitSizes.length === 1) {
-        // If only one split size is provided, use it for the first sent type
-        // and divide the rest evenly among remaining sent types
-        if (i === 0) {
-          splitSize = splitSizes[0];
-        } else {
-          const remainingRecords = data.length - splitSizes[0];
-          const remainingSentTypes = sentTypes.length - 1;
-          splitSize = remainingRecords > 0 ? Math.ceil(remainingRecords / remainingSentTypes) : 0;
-        }
-      } else {
-        // Distribute remaining records evenly
-        splitSize = Math.ceil((data.length - currentIndex) / (sentTypes.length - i));
-      }
-      
-      console.log(`Sent type ${sentType} gets split size of ${splitSize}`);
-      
-      // Add records to this sent type's group
-      const endIndex = Math.min(currentIndex + splitSize, data.length);
-      for (let j = currentIndex; j < endIndex; j++) {
-        const row = data[j];
-        const newRow = { ...row, account: accountName, sent: sentType };
-        result[sentType].push(newRow);
-      }
-      
-      console.log(`Added ${endIndex - currentIndex} records to sent type ${sentType}`);
-      currentIndex = endIndex;
-      
-      // If we've processed all records, break the loop
-      if (currentIndex >= data.length) {
-        break;
-      }
+    for (let i = startIndex; i < data.length; i++) {
+      result[remainderKey].push({
+        ...data[i],
+        account: lastConfig.accountName,
+        sent: `${lastConfig.sentType}_remainder`
+      });
     }
+    
+    console.log(`Created balance remainder split ${remainderKey} with ${data.length - startIndex} records`);
   }
   
   // Final log of results
