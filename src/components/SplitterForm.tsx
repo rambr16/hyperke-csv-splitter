@@ -1,3 +1,4 @@
+
 import React from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
@@ -6,10 +7,11 @@ import { useToast } from "@/components/ui/use-toast";
 import { parseCSV, splitData, objectsToCSV, downloadStringAsFile } from "@/utils/csvUtils";
 import FileUpload from "./FileUpload";
 import SplitConfigRow from "./SplitConfigRow";
-import { Plus } from "lucide-react";
+import { Plus, RefreshCw } from "lucide-react";
 
 interface SplitterFormProps {
   onFileLoaded: (file: File) => void;
+  onReset?: () => void;
 }
 
 interface SplitConfig {
@@ -18,7 +20,7 @@ interface SplitConfig {
   splitSize: string;
 }
 
-const SplitterForm: React.FC<SplitterFormProps> = ({ onFileLoaded }) => {
+const SplitterForm: React.FC<SplitterFormProps> = ({ onFileLoaded, onReset }) => {
   const { toast } = useToast();
   const [file, setFile] = React.useState<File | null>(null);
   const [splitConfigs, setSplitConfigs] = React.useState<SplitConfig[]>([
@@ -77,6 +79,24 @@ const SplitterForm: React.FC<SplitterFormProps> = ({ onFileLoaded }) => {
     setHeaders([]);
     setHasProcessed(false);
     setProcessedData({});
+  };
+
+  const handleReset = () => {
+    console.log("SplitterForm: Resetting all data");
+    handleClearFile();
+    setSplitConfigs([
+      { accountName: "", sentType: "", splitSize: "" },
+      { accountName: "", sentType: "", splitSize: "" }
+    ]);
+    
+    if (onReset) {
+      onReset();
+    }
+    
+    toast({
+      title: "Data reset",
+      description: "All data has been cleared",
+    });
   };
 
   const handleAccountNameChange = (index: number, value: string) => {
@@ -209,14 +229,24 @@ const SplitterForm: React.FC<SplitterFormProps> = ({ onFileLoaded }) => {
       <Card>
         <CardContent className="pt-6">
           <div className="space-y-4">
-            <div>
+            <div className="flex justify-between items-center">
               <Label htmlFor="file-upload">CSV File</Label>
-              <FileUpload
-                onFileSelected={handleFileSelected}
-                selectedFile={file}
-                onClearFile={handleClearFile}
-              />
+              <Button
+                onClick={handleReset}
+                variant="outline"
+                size="sm"
+                className="text-destructive hover:bg-destructive/10"
+              >
+                <RefreshCw size={16} className="mr-1" />
+                Reset All
+              </Button>
             </div>
+            
+            <FileUpload
+              onFileSelected={handleFileSelected}
+              selectedFile={file}
+              onClearFile={handleClearFile}
+            />
             
             <div className="space-y-4">
               <div>

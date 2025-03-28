@@ -29,6 +29,11 @@ const Index = () => {
     }
   };
 
+  const handleReset = () => {
+    console.log("Index: Resetting all data");
+    setOriginalData([]);
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-b from-white to-app-gray-light">
       <header className="bg-white shadow-sm">
@@ -44,7 +49,7 @@ const Index = () => {
 
       <main className="container py-8">
         <div className="grid grid-cols-1 gap-8">
-          <SplitterForm onFileLoaded={handleFileLoaded} />
+          <SplitterForm onFileLoaded={handleFileLoaded} onReset={handleReset} />
           
           <ScrollArea className="h-full">
             <div className="space-y-8 pb-10">
