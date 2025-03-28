@@ -1,3 +1,4 @@
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -13,7 +14,7 @@
     --popover: 0 0% 100%;
     --popover-foreground: 222.2 84% 4.9%;
 
-    --primary: 222.2 47.4% 11.2%;
+    --primary: 199 89% 48%;
     --primary-foreground: 210 40% 98%;
 
     --secondary: 210 40% 96.1%;
@@ -30,7 +31,7 @@
 
     --border: 214.3 31.8% 91.4%;
     --input: 214.3 31.8% 91.4%;
-    --ring: 222.2 84% 4.9%;
+    --ring: 199 89% 48%;
 
     --radius: 0.5rem;
 
@@ -97,5 +98,31 @@
 
   body {
     @apply bg-background text-foreground;
+  }
+
+  /* Additional custom styles */
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+
+  ::-webkit-scrollbar-track {
+    @apply bg-app-gray-light;
+    border-radius: 5px;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    @apply bg-app-gray;
+    border-radius: 5px;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    @apply bg-app-gray-dark;
+  }
+}
+
+@layer utilities {
+  .container {
+    @apply px-4 sm:px-6 lg:px-8;
   }
 }
