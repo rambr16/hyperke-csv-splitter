@@ -69,14 +69,20 @@ export const splitData = (
     result[type] = [];
   });
   
+  // If no data to split, return empty result
+  if (data.length === 0) {
+    return result;
+  }
+  
   // Handle the case when no split sizes are provided (even distribution)
   if (splitSizes.length === 0) {
     const calculatedSplitSize = Math.ceil(data.length / sentTypes.length);
     
     // Distribute rows among sent types
     data.forEach((row, index) => {
-      const typeIndex = Math.floor(index / calculatedSplitSize) % sentTypes.length;
-      const sentType = sentTypes[typeIndex];
+      const typeIndex = Math.floor(index / calculatedSplitSize);
+      // Make sure we don't exceed the array bounds
+      const sentType = typeIndex < sentTypes.length ? sentTypes[typeIndex] : sentTypes[sentTypes.length - 1];
       
       // Add account and sent columns to the row
       const newRow = { ...row, account: accountName, sent: sentType };
@@ -91,29 +97,24 @@ export const splitData = (
     for (let i = 0; i < sentTypes.length; i++) {
       const sentType = sentTypes[i];
       // If there's a split size for this sent type, use it; otherwise use remaining records
-      const splitSize = i < splitSizes.length ? splitSizes[i] : data.length - currentIndex;
+      const splitSize = i < splitSizes.length ? splitSizes[i] : 
+                       (i === 0 && splitSizes.length === 1) ? splitSizes[0] : 
+                       Math.ceil((data.length - currentIndex) / (sentTypes.length - i));
       
       // Add records to this sent type's group
-      for (let j = 0; j < splitSize && currentIndex < data.length; j++, currentIndex++) {
-        const row = data[currentIndex];
+      const endIndex = Math.min(currentIndex + splitSize, data.length);
+      for (let j = currentIndex; j < endIndex; j++) {
+        const row = data[j];
         const newRow = { ...row, account: accountName, sent: sentType };
         result[sentType].push(newRow);
       }
-    }
-    
-    // If there are remaining records and we've used all split sizes, distribute them evenly
-    if (currentIndex < data.length) {
-      const remainingData = data.slice(currentIndex);
-      const distributedSplitSize = Math.ceil(remainingData.length / sentTypes.length);
       
-      remainingData.forEach((row, index) => {
-        const typeIndex = Math.floor(index / distributedSplitSize) % sentTypes.length;
-        const sentType = sentTypes[typeIndex];
-        
-        // Add account and sent columns to the row
-        const newRow = { ...row, account: accountName, sent: sentType };
-        result[sentType].push(newRow);
-      });
+      currentIndex = endIndex;
+      
+      // If we've processed all records, break the loop
+      if (currentIndex >= data.length) {
+        break;
+      }
     }
   }
   

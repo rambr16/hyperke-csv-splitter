@@ -1,3 +1,4 @@
+
 import React from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
@@ -31,6 +32,9 @@ const SplitterForm: React.FC<SplitterFormProps> = ({ onFileLoaded }) => {
       const text = await selectedFile.text();
       const data = parseCSV(text);
       setCsvData(data);
+      
+      console.log("Parsed CSV data:", data.length, "records");
+      
       if (data.length > 0) {
         setHeaders(Object.keys(data[0]));
       }
@@ -44,6 +48,7 @@ const SplitterForm: React.FC<SplitterFormProps> = ({ onFileLoaded }) => {
         description: `Loaded ${data.length} records from ${selectedFile.name}`,
       });
     } catch (error) {
+      console.error("Error parsing CSV:", error);
       toast({
         title: "Error loading file",
         description: "The file could not be parsed as a CSV",
@@ -103,11 +108,20 @@ const SplitterForm: React.FC<SplitterFormProps> = ({ onFileLoaded }) => {
         return;
       }
       
+      console.log("Processing", csvData.length, "records with sent types:", sentTypesArray);
+      
       const splitSizesArray = splitSize.trim() !== "" 
         ? splitSize.split(',').map(s => s.trim()).map(s => parseInt(s))
         : [];
       
+      console.log("Using split sizes:", splitSizesArray.length ? splitSizesArray : "Even distribution");
+      
       const result = splitData(csvData, sentTypesArray, accountName, splitSizesArray);
+      
+      console.log("Split result:", result);
+      Object.keys(result).forEach(key => {
+        console.log(`${key}: ${result[key].length} records`);
+      });
       
       setProcessedData(result);
       setHasProcessed(true);
@@ -117,12 +131,12 @@ const SplitterForm: React.FC<SplitterFormProps> = ({ onFileLoaded }) => {
         description: `Split ${csvData.length} records into ${Object.keys(result).length} files`,
       });
     } catch (error) {
+      console.error("Processing error:", error);
       toast({
         title: "Processing error",
         description: "An error occurred while processing the data",
         variant: "destructive",
       });
-      console.error("Processing error:", error);
     } finally {
       setIsLoading(false);
     }

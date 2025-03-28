@@ -12,6 +12,7 @@ const Index = () => {
     try {
       const text = await file.text();
       const data = parseCSV(text);
+      console.log("Index: Loaded CSV with", data.length, "records");
       setOriginalData(data);
     } catch (error) {
       console.error("Error parsing CSV:", error);
