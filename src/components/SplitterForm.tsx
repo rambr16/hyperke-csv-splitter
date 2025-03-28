@@ -1,4 +1,3 @@
-
 import React from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
@@ -8,9 +7,11 @@ import { useToast } from "@/components/ui/use-toast";
 import { parseCSV, splitData, objectsToCSV, downloadStringAsFile } from "@/utils/csvUtils";
 import FileUpload from "./FileUpload";
 
-interface SplitterFormProps {}
+interface SplitterFormProps {
+  onFileLoaded?: (file: File) => void;
+}
 
-const SplitterForm: React.FC<SplitterFormProps> = () => {
+const SplitterForm: React.FC<SplitterFormProps> = ({ onFileLoaded }) => {
   const { toast } = useToast();
   const [file, setFile] = React.useState<File | null>(null);
   const [accountName, setAccountName] = React.useState<string>("");
@@ -33,6 +34,11 @@ const SplitterForm: React.FC<SplitterFormProps> = () => {
       if (data.length > 0) {
         setHeaders(Object.keys(data[0]));
       }
+      
+      if (onFileLoaded) {
+        onFileLoaded(selectedFile);
+      }
+      
       toast({
         title: "File loaded successfully",
         description: `Loaded ${data.length} records from ${selectedFile.name}`,
@@ -70,7 +76,6 @@ const SplitterForm: React.FC<SplitterFormProps> = () => {
       return false;
     }
     
-    // Validate split sizes if provided
     if (splitSize.trim() !== "") {
       const splitSizes = splitSize.split(',').map(s => s.trim());
       for (const size of splitSizes) {
@@ -98,7 +103,6 @@ const SplitterForm: React.FC<SplitterFormProps> = () => {
         return;
       }
       
-      // Parse split sizes - can be a single value or multiple comma-separated values
       const splitSizesArray = splitSize.trim() !== "" 
         ? splitSize.split(',').map(s => s.trim()).map(s => parseInt(s))
         : [];
