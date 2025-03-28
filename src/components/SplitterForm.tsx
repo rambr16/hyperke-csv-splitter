@@ -2,22 +2,30 @@
 import React from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
-import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/use-toast";
 import { parseCSV, splitData, objectsToCSV, downloadStringAsFile } from "@/utils/csvUtils";
 import FileUpload from "./FileUpload";
+import SplitConfigRow from "./SplitConfigRow";
+import { Plus } from "lucide-react";
 
 interface SplitterFormProps {
-  onFileLoaded?: (file: File) => void;
+  onFileLoaded: (file: File) => void;
+}
+
+interface SplitConfig {
+  accountName: string;
+  sentType: string;
+  splitSize: string;
 }
 
 const SplitterForm: React.FC<SplitterFormProps> = ({ onFileLoaded }) => {
   const { toast } = useToast();
   const [file, setFile] = React.useState<File | null>(null);
-  const [accountName, setAccountName] = React.useState<string>("");
-  const [sentTypes, setSentTypes] = React.useState<string>("");
-  const [splitSize, setSplitSize] = React.useState<string>("");
+  const [splitConfigs, setSplitConfigs] = React.useState<SplitConfig[]>([
+    { accountName: "", sentType: "", splitSize: "" },
+    { accountName: "", sentType: "", splitSize: "" }
+  ]);
   const [csvData, setCsvData] = React.useState<Record<string, string>[]>([]);
   const [headers, setHeaders] = React.useState<string[]>([]);
   const [isLoading, setIsLoading] = React.useState<boolean>(false);
@@ -65,29 +73,66 @@ const SplitterForm: React.FC<SplitterFormProps> = ({ onFileLoaded }) => {
     setProcessedData({});
   };
 
+  const handleAccountNameChange = (index: number, value: string) => {
+    const newConfigs = [...splitConfigs];
+    newConfigs[index].accountName = value;
+    setSplitConfigs(newConfigs);
+  };
+
+  const handleSentTypeChange = (index: number, value: string) => {
+    const newConfigs = [...splitConfigs];
+    newConfigs[index].sentType = value;
+    setSplitConfigs(newConfigs);
+  };
+
+  const handleSplitSizeChange = (index: number, value: string) => {
+    const newConfigs = [...splitConfigs];
+    newConfigs[index].splitSize = value;
+    setSplitConfigs(newConfigs);
+  };
+
+  const handleAddRow = () => {
+    setSplitConfigs([
+      ...splitConfigs,
+      { accountName: "", sentType: "", splitSize: "" }
+    ]);
+  };
+
+  const handleRemoveRow = (index: number) => {
+    if (splitConfigs.length <= 2) return; // Keep at least 2 rows
+    const newConfigs = splitConfigs.filter((_, i) => i !== index);
+    setSplitConfigs(newConfigs);
+  };
+
   const validateInputs = (): boolean => {
     if (!file) {
       toast({ title: "No file selected", description: "Please upload a CSV file", variant: "destructive" });
       return false;
     }
     
-    if (!accountName.trim()) {
-      toast({ title: "Account name required", description: "Please enter an account name", variant: "destructive" });
+    // Filter out empty rows
+    const validConfigs = splitConfigs.filter(config => 
+      config.accountName.trim() !== "" && config.sentType.trim() !== ""
+    );
+    
+    if (validConfigs.length === 0) {
+      toast({ 
+        title: "Invalid configuration", 
+        description: "Please provide at least one valid row with account name and sent type", 
+        variant: "destructive" 
+      });
       return false;
     }
     
-    if (!sentTypes.trim()) {
-      toast({ title: "Sent types required", description: "Please enter comma-separated sent types (e.g., a1,a2,a3)", variant: "destructive" });
-      return false;
-    }
-    
-    if (splitSize.trim() !== "") {
-      const splitSizes = splitSize.split(',').map(s => s.trim());
-      for (const size of splitSizes) {
-        if (isNaN(Number(size))) {
-          toast({ title: "Invalid split size", description: "Split sizes must be numbers", variant: "destructive" });
-          return false;
-        }
+    // Check if any split sizes are invalid
+    for (const config of validConfigs) {
+      if (config.splitSize.trim() !== "" && isNaN(Number(config.splitSize.trim()))) {
+        toast({ 
+          title: "Invalid split size", 
+          description: "Split sizes must be numbers", 
+          variant: "destructive" 
+        });
+        return false;
       }
     }
     
@@ -100,35 +145,46 @@ const SplitterForm: React.FC<SplitterFormProps> = ({ onFileLoaded }) => {
     setIsLoading(true);
     
     try {
-      const sentTypesArray = sentTypes.split(',').map(t => t.trim()).filter(t => t !== "");
+      // Process each configuration and combine results
+      const allProcessedData: Record<string, Record<string, string>[]> = {};
       
-      if (sentTypesArray.length === 0) {
-        toast({ title: "No valid sent types", description: "Please enter valid comma-separated sent types", variant: "destructive" });
-        setIsLoading(false);
-        return;
+      // Filter out empty rows
+      const validConfigs = splitConfigs.filter(config => 
+        config.accountName.trim() !== "" && config.sentType.trim() !== ""
+      );
+      
+      console.log("Processing with configurations:", validConfigs);
+      
+      for (const config of validConfigs) {
+        const accountName = config.accountName.trim();
+        const sentType = config.sentType.trim();
+        const splitSize = config.splitSize.trim() !== "" ? parseInt(config.splitSize.trim()) : 0;
+        
+        console.log(`Processing config: account=${accountName}, sentType=${sentType}, splitSize=${splitSize}`);
+        
+        // For each config, we create a separate split
+        const result = splitData(
+          csvData, 
+          [sentType], 
+          accountName,
+          splitSize > 0 ? [splitSize] : []
+        );
+        
+        console.log(`Split result for ${accountName}_${sentType}:`, result);
+        
+        // Merge results
+        Object.keys(result).forEach(key => {
+          const combinedKey = `${accountName}_${key}`;
+          allProcessedData[combinedKey] = result[key];
+        });
       }
       
-      console.log("Processing", csvData.length, "records with sent types:", sentTypesArray);
-      
-      const splitSizesArray = splitSize.trim() !== "" 
-        ? splitSize.split(',').map(s => s.trim()).map(s => parseInt(s))
-        : [];
-      
-      console.log("Using split sizes:", splitSizesArray.length ? splitSizesArray : "Even distribution");
-      
-      const result = splitData(csvData, sentTypesArray, accountName, splitSizesArray);
-      
-      console.log("Split result:", result);
-      Object.keys(result).forEach(key => {
-        console.log(`${key}: ${result[key].length} records`);
-      });
-      
-      setProcessedData(result);
+      setProcessedData(allProcessedData);
       setHasProcessed(true);
       
       toast({
         title: "Processing complete",
-        description: `Split ${csvData.length} records into ${Object.keys(result).length} files`,
+        description: `Split ${csvData.length} records into ${Object.keys(allProcessedData).length} files`,
       });
     } catch (error) {
       console.error("Processing error:", error);
@@ -142,24 +198,23 @@ const SplitterForm: React.FC<SplitterFormProps> = ({ onFileLoaded }) => {
     }
   };
 
-  const handleDownload = (sentType: string) => {
-    if (!processedData[sentType]) return;
+  const handleDownload = (key: string) => {
+    if (!processedData[key]) return;
     
     const allHeaders = [...headers, "account", "sent"];
-    const csvString = objectsToCSV(processedData[sentType], allHeaders);
-    const fileName = `${accountName}_${sentType}.csv`;
+    const csvString = objectsToCSV(processedData[key], allHeaders);
     
-    downloadStringAsFile(csvString, fileName, "text/csv");
+    downloadStringAsFile(csvString, `${key}.csv`, "text/csv");
     
     toast({
       title: "File downloaded",
-      description: `Downloaded ${fileName} with ${processedData[sentType].length} records`,
+      description: `Downloaded ${key}.csv with ${processedData[key].length} records`,
     });
   };
 
   const handleDownloadAll = () => {
-    Object.keys(processedData).forEach(sentType => {
-      handleDownload(sentType);
+    Object.keys(processedData).forEach(key => {
+      handleDownload(key);
     });
   };
 
@@ -177,41 +232,40 @@ const SplitterForm: React.FC<SplitterFormProps> = ({ onFileLoaded }) => {
               />
             </div>
             
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="space-y-4">
               <div>
-                <Label htmlFor="accountName">Account Name</Label>
-                <Input
-                  id="accountName"
-                  placeholder="e.g., AMZ"
-                  value={accountName}
-                  onChange={(e) => setAccountName(e.target.value)}
-                />
-              </div>
-              
-              <div>
-                <Label htmlFor="sentTypes">Sent Types</Label>
-                <Input
-                  id="sentTypes"
-                  placeholder="e.g., a1,a2,a3"
-                  value={sentTypes}
-                  onChange={(e) => setSentTypes(e.target.value)}
-                />
-              </div>
-              
-              <div>
-                <Label htmlFor="splitSize">
-                  Split Size 
-                  <span className="text-xs text-muted-foreground ml-1">(optional)</span>
-                </Label>
-                <Input
-                  id="splitSize"
-                  placeholder="Single value or comma-separated (e.g., 100 or 100,200,300)"
-                  value={splitSize}
-                  onChange={(e) => setSplitSize(e.target.value)}
-                />
-                <p className="text-xs text-muted-foreground mt-1">
-                  For multiple values, specify sizes in same order as sent types
-                </p>
+                <Label className="mb-2 block">Split Configuration</Label>
+                <div className="mb-2 grid grid-cols-[1fr_1fr_1fr_auto] gap-4">
+                  <div className="text-sm font-medium text-muted-foreground">Account Name</div>
+                  <div className="text-sm font-medium text-muted-foreground">Sent Type</div>
+                  <div className="text-sm font-medium text-muted-foreground">Split Size (optional)</div>
+                  <div></div>
+                </div>
+                
+                {splitConfigs.map((config, index) => (
+                  <SplitConfigRow
+                    key={index}
+                    index={index}
+                    accountName={config.accountName}
+                    sentType={config.sentType}
+                    splitSize={config.splitSize}
+                    onAccountNameChange={handleAccountNameChange}
+                    onSentTypeChange={handleSentTypeChange}
+                    onSplitSizeChange={handleSplitSizeChange}
+                    onRemove={handleRemoveRow}
+                    canRemove={splitConfigs.length > 2}
+                  />
+                ))}
+                
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={handleAddRow}
+                  className="mt-2"
+                >
+                  <Plus size={16} className="mr-1" />
+                  Add Row
+                </Button>
               </div>
             </div>
             
@@ -235,18 +289,18 @@ const SplitterForm: React.FC<SplitterFormProps> = ({ onFileLoaded }) => {
               <h3 className="text-lg font-medium">Processed Files</h3>
               
               <div className="space-y-2">
-                {Object.keys(processedData).map((sentType) => (
-                  <div key={sentType} className="flex justify-between items-center p-2 bg-app-gray-light rounded">
+                {Object.keys(processedData).map((key) => (
+                  <div key={key} className="flex justify-between items-center p-2 bg-app-gray-light rounded">
                     <div>
-                      <span className="font-medium">{sentType}</span>
+                      <span className="font-medium">{key}</span>
                       <span className="text-sm text-muted-foreground ml-2">
-                        {processedData[sentType].length} records
+                        {processedData[key].length} records
                       </span>
                     </div>
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={() => handleDownload(sentType)}
+                      onClick={() => handleDownload(key)}
                       className="text-app-blue hover:text-app-blue-dark hover:bg-app-blue/10"
                     >
                       Download

@@ -55,7 +55,7 @@ export const objectsToCSV = (data: Record<string, string>[], headers?: string[])
   return csvString;
 };
 
-// Split data based on multiple split sizes
+// Split data based on sent types and optional split sizes
 export const splitData = (
   data: Record<string, string>[], 
   sentTypes: string[],
@@ -74,9 +74,12 @@ export const splitData = (
     return result;
   }
   
+  console.log(`splitData called with ${data.length} records, sentTypes: ${sentTypes.join(',')}, account: ${accountName}, splitSizes: ${splitSizes.join(',') || 'none'}`);
+  
   // Handle the case when no split sizes are provided (even distribution)
   if (splitSizes.length === 0) {
     const calculatedSplitSize = Math.ceil(data.length / sentTypes.length);
+    console.log(`No split sizes provided. Using calculated size of ${calculatedSplitSize} per sent type`);
     
     // Distribute rows among sent types
     data.forEach((row, index) => {
@@ -96,10 +99,27 @@ export const splitData = (
     // Process each sent type with its corresponding split size
     for (let i = 0; i < sentTypes.length; i++) {
       const sentType = sentTypes[i];
-      // If there's a split size for this sent type, use it; otherwise use remaining records
-      const splitSize = i < splitSizes.length ? splitSizes[i] : 
-                       (i === 0 && splitSizes.length === 1) ? splitSizes[0] : 
-                       Math.ceil((data.length - currentIndex) / (sentTypes.length - i));
+      let splitSize: number;
+      
+      // Handle different split size scenarios
+      if (i < splitSizes.length) {
+        splitSize = splitSizes[i];
+      } else if (splitSizes.length === 1) {
+        // If only one split size is provided, use it for the first sent type
+        // and divide the rest evenly among remaining sent types
+        if (i === 0) {
+          splitSize = splitSizes[0];
+        } else {
+          const remainingRecords = data.length - splitSizes[0];
+          const remainingSentTypes = sentTypes.length - 1;
+          splitSize = remainingRecords > 0 ? Math.ceil(remainingRecords / remainingSentTypes) : 0;
+        }
+      } else {
+        // Distribute remaining records evenly
+        splitSize = Math.ceil((data.length - currentIndex) / (sentTypes.length - i));
+      }
+      
+      console.log(`Sent type ${sentType} gets split size of ${splitSize}`);
       
       // Add records to this sent type's group
       const endIndex = Math.min(currentIndex + splitSize, data.length);
@@ -109,6 +129,7 @@ export const splitData = (
         result[sentType].push(newRow);
       }
       
+      console.log(`Added ${endIndex - currentIndex} records to sent type ${sentType}`);
       currentIndex = endIndex;
       
       // If we've processed all records, break the loop
@@ -117,6 +138,11 @@ export const splitData = (
       }
     }
   }
+  
+  // Final log of results
+  Object.keys(result).forEach(key => {
+    console.log(`Final result: ${key} has ${result[key].length} records`);
+  });
   
   return result;
 };
