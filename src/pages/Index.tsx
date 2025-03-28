@@ -34,7 +34,7 @@ const Index = () => {
 
       <main className="container py-8">
         <div className="grid grid-cols-1 gap-8">
-          <SplitterForm />
+          <SplitterForm onFileLoaded={handleFileLoaded} />
           
           <ScrollArea className="h-full">
             <div className="space-y-8 pb-10">

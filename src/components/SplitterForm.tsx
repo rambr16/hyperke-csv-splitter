@@ -70,10 +70,15 @@ const SplitterForm: React.FC<SplitterFormProps> = () => {
       return false;
     }
     
-    // Validate split size is a number if provided
-    if (splitSize.trim() !== "" && isNaN(Number(splitSize))) {
-      toast({ title: "Invalid split size", description: "Split size must be a number", variant: "destructive" });
-      return false;
+    // Validate split sizes if provided
+    if (splitSize.trim() !== "") {
+      const splitSizes = splitSize.split(',').map(s => s.trim());
+      for (const size of splitSizes) {
+        if (isNaN(Number(size))) {
+          toast({ title: "Invalid split size", description: "Split sizes must be numbers", variant: "destructive" });
+          return false;
+        }
+      }
     }
     
     return true;
@@ -93,16 +98,19 @@ const SplitterForm: React.FC<SplitterFormProps> = () => {
         return;
       }
       
-      const splitSizeValue = splitSize.trim() !== "" ? parseInt(splitSize) : undefined;
+      // Parse split sizes - can be a single value or multiple comma-separated values
+      const splitSizesArray = splitSize.trim() !== "" 
+        ? splitSize.split(',').map(s => s.trim()).map(s => parseInt(s))
+        : [];
       
-      const result = splitData(csvData, sentTypesArray, accountName, splitSizeValue);
+      const result = splitData(csvData, sentTypesArray, accountName, splitSizesArray);
       
       setProcessedData(result);
       setHasProcessed(true);
       
       toast({
         title: "Processing complete",
-        description: `Split ${csvData.length} records into ${sentTypesArray.length} files`,
+        description: `Split ${csvData.length} records into ${Object.keys(result).length} files`,
       });
     } catch (error) {
       toast({
@@ -179,12 +187,13 @@ const SplitterForm: React.FC<SplitterFormProps> = () => {
                 </Label>
                 <Input
                   id="splitSize"
-                  placeholder="Records per type (leave blank for even split)"
+                  placeholder="Single value or comma-separated (e.g., 100 or 100,200,300)"
                   value={splitSize}
                   onChange={(e) => setSplitSize(e.target.value)}
-                  type="number"
-                  min="1"
                 />
+                <p className="text-xs text-muted-foreground mt-1">
+                  For multiple values, specify sizes in same order as sent types
+                </p>
               </div>
             </div>
             
