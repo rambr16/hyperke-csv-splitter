@@ -27,6 +27,7 @@ export const parseCSV = (csvString: string): Record<string, string>[] => {
     result.push(row);
   }
   
+  console.log(`Parsed ${result.length} records from CSV`);
   return result;
 };
 
@@ -76,6 +77,42 @@ export const splitData = (
   
   console.log(`splitData called with ${data.length} records, sentTypes: ${sentTypes.join(',')}, account: ${accountName}, splitSizes: ${splitSizes.join(',') || 'none'}`);
   
+  // Special handling for single sent type to ensure at least two output files
+  if (sentTypes.length === 1 && splitSizes.length <= 1) {
+    const sentType = sentTypes[0];
+    let splitSize: number;
+    
+    // Determine the split size
+    if (splitSizes.length === 1 && splitSizes[0] > 0) {
+      splitSize = splitSizes[0];
+    } else {
+      // Default to half the data when no split size is provided
+      splitSize = Math.ceil(data.length / 2);
+    }
+    
+    console.log(`Single sent type with ${splitSize} split size (out of ${data.length} total records)`);
+    
+    // Generate a second sent type for the remainder
+    const secondSentType = `${sentType}_remainder`;
+    result[secondSentType] = [];
+    
+    // Split the first part according to the specified split size
+    const firstPart = data.slice(0, splitSize);
+    firstPart.forEach(row => {
+      result[sentType].push({ ...row, account: accountName, sent: sentType });
+    });
+    
+    // Put the remainder in the second sent type
+    const secondPart = data.slice(splitSize);
+    secondPart.forEach(row => {
+      result[secondSentType].push({ ...row, account: accountName, sent: secondSentType });
+    });
+    
+    console.log(`Split into ${result[sentType].length} records for ${sentType} and ${result[secondSentType].length} records for ${secondSentType}`);
+    return result;
+  }
+  
+  // Handle multiple sent types
   // Handle the case when no split sizes are provided (even distribution)
   if (splitSizes.length === 0) {
     const calculatedSplitSize = Math.ceil(data.length / sentTypes.length);
