@@ -1,4 +1,3 @@
-
 import React from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
@@ -42,7 +41,6 @@ const SplitterForm: React.FC<SplitterFormProps> = ({ onFileLoaded, onReset }) =>
       const text = await selectedFile.text();
       console.log(`File content length: ${text.length} characters`);
       
-      // Log the first ~200 characters to debug format issues
       console.log(`First part of file: ${text.substring(0, 200)}...`);
       
       const data = parseCSV(text);
@@ -136,7 +134,6 @@ const SplitterForm: React.FC<SplitterFormProps> = ({ onFileLoaded, onReset }) =>
       return false;
     }
     
-    // Filter out empty rows
     const validConfigs = splitConfigs.filter(config => 
       config.accountName.trim() !== "" && config.sentType.trim() !== ""
     );
@@ -150,7 +147,6 @@ const SplitterForm: React.FC<SplitterFormProps> = ({ onFileLoaded, onReset }) =>
       return false;
     }
     
-    // Check if any split sizes are invalid
     for (const config of validConfigs) {
       if (config.splitSize.trim() !== "" && isNaN(Number(config.splitSize.trim()))) {
         toast({ 
@@ -171,7 +167,6 @@ const SplitterForm: React.FC<SplitterFormProps> = ({ onFileLoaded, onReset }) =>
     setIsLoading(true);
     
     try {
-      // Filter out empty rows and convert to required format
       const validConfigs = splitConfigs
         .filter(config => config.accountName.trim() !== "" && config.sentType.trim() !== "")
         .map(config => ({
@@ -182,7 +177,6 @@ const SplitterForm: React.FC<SplitterFormProps> = ({ onFileLoaded, onReset }) =>
       
       console.log("Processing with configurations:", validConfigs);
       
-      // Process all configurations at once with the new splitData function
       const result = splitData(csvData, validConfigs);
       
       setProcessedData(result);
@@ -253,7 +247,7 @@ const SplitterForm: React.FC<SplitterFormProps> = ({ onFileLoaded, onReset }) =>
                 <Label className="mb-2 block">Split Configuration</Label>
                 <div className="mb-2 grid grid-cols-[1fr_1fr_1fr_auto] gap-4">
                   <div className="text-sm font-medium text-muted-foreground">Account Name</div>
-                  <div className="text-sm font-medium text-muted-foreground">Sent Type</div>
+                  <div className="text-sm font-medium text-muted-foreground">Sent</div>
                   <div className="text-sm font-medium text-muted-foreground">Split Size (optional)</div>
                   <div></div>
                 </div>

@@ -36,7 +36,7 @@ const SplitConfigRow: React.FC<SplitConfigRowProps> = ({
       />
       
       <Input
-        placeholder="e.g., a1"
+        placeholder="03/12 | AMZ | Offering Specific Roles with a Stronger Hook | Outscraper | Google mx | Feb 200"
         value={sentType}
         onChange={(e) => onSentTypeChange(index, e.target.value)}
       />
