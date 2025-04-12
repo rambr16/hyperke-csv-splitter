@@ -4,7 +4,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/use-toast";
-import { parseCSV, splitData, objectsToCSV, downloadStringAsFile } from "@/utils/csvUtils";
+import { parseCSV, splitData, objectsToCSV, downloadStringAsFile } from "@/utils/csv";
 import FileUpload from "./FileUpload";
 import SplitConfigRow from "./SplitConfigRow";
 import { Plus, RefreshCw } from "lucide-react";

@@ -1,9 +1,8 @@
-
 import React, { useState } from "react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import SplitterForm from "@/components/SplitterForm";
 import DataPreview from "@/components/DataPreview";
-import { parseCSV } from "@/utils/csvUtils";
+import { parseCSV } from "@/utils/csv";
 
 const Index = () => {
   const [originalData, setOriginalData] = useState<Record<string, string>[]>([]);
