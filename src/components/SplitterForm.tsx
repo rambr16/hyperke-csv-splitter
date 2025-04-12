@@ -1,4 +1,3 @@
-
 import React from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
@@ -191,12 +190,22 @@ const SplitterForm: React.FC<SplitterFormProps> = ({ onFileLoaded, onReset }) =>
           variant: "destructive",
         });
       } else {
-        setProcessedData(result);
+        const displayResult: Record<string, Record<string, string>[]> = {};
+        
+        Object.keys(result).forEach(key => {
+          const keyParts = key.split('_');
+          const index = keyParts.pop();
+          const originalKey = keyParts.join('_');
+          
+          displayResult[originalKey] = result[key];
+        });
+        
+        setProcessedData(displayResult);
         setHasProcessed(true);
         
         toast({
           title: "Processing complete",
-          description: `Split ${csvData.length} records into ${Object.keys(result).length} files`,
+          description: `Split ${csvData.length} records into ${Object.keys(displayResult).length} files`,
         });
       }
     } catch (error) {
