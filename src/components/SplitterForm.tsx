@@ -1,3 +1,4 @@
+
 import React from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
@@ -190,14 +191,22 @@ const SplitterForm: React.FC<SplitterFormProps> = ({ onFileLoaded, onReset }) =>
           variant: "destructive",
         });
       } else {
+        // Transform the result to display in UI by removing index from keys
         const displayResult: Record<string, Record<string, string>[]> = {};
         
         Object.keys(result).forEach(key => {
+          // Create a displayable key by removing the index suffix
           const keyParts = key.split('_');
-          const index = keyParts.pop();
-          const originalKey = keyParts.join('_');
+          const originalKey = `${keyParts[0]}_${keyParts[1]}`; // Keep just account and sent type
+          const index = parseInt(keyParts[2]);
           
-          displayResult[originalKey] = result[key];
+          // If we already have this key, append a unique suffix
+          let displayKey = originalKey;
+          if (displayResult[displayKey]) {
+            displayKey = `${originalKey}_${index + 1}`; // Add 1 for human-readable numbering
+          }
+          
+          displayResult[displayKey] = result[key];
         });
         
         setProcessedData(displayResult);

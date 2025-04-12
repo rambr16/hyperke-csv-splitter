@@ -14,15 +14,16 @@ export const splitData = (
   }
   
   console.log(`splitData called with ${data.length} records and ${configs.length} configurations`);
+  console.log("Configurations:", JSON.stringify(configs));
   
   // Create a copy of data to work with
   let remainingData = [...data];
   
-  // Process each configuration individually to ensure unique keys
-  for (let i = 0; i < configs.length; i++) {
-    const config = configs[i];
+  // Process each configuration individually to create appropriate keys
+  configs.forEach((config, i) => {
     const { accountName, sentType, splitSize } = config;
-    const key = `${accountName}_${sentType}_${i}`; // Add index to make each key unique
+    // Create a unique key for each config regardless of account/sent type
+    const key = `${accountName}_${sentType}_${i}`;
     
     // Calculate how many records to allocate to this split
     let recordsToAllocate = 0;
@@ -63,15 +64,15 @@ export const splitData = (
       // Remove the allocated records from remainingData
       remainingData = remainingData.slice(recordsToAllocate);
     }
-  }
+  });
   
   // Final log of results
   Object.keys(result).forEach(key => {
-    // Extract the original config key without the index
-    const keyParts = key.split('_');
-    const originalKey = keyParts.slice(0, -1).join('_');
-    console.log(`Final result: ${originalKey} has ${result[key].length} records`);
+    console.log(`Final result: ${key} has ${result[key].length} records`);
   });
+  
+  console.log("Total splits created:", Object.keys(result).length);
+  console.log("Remaining unallocated records:", remainingData.length);
   
   return result;
 };
