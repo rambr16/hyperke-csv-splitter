@@ -1,3 +1,4 @@
+
 import React from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
@@ -165,6 +166,7 @@ const SplitterForm: React.FC<SplitterFormProps> = ({ onFileLoaded, onReset }) =>
     if (!validateInputs()) return;
     
     setIsLoading(true);
+    setProcessedData({});
     
     try {
       const validConfigs = splitConfigs
@@ -176,16 +178,27 @@ const SplitterForm: React.FC<SplitterFormProps> = ({ onFileLoaded, onReset }) =>
         }));
       
       console.log("Processing with configurations:", validConfigs);
+      console.log("Total records to process:", csvData.length);
       
       const result = splitData(csvData, validConfigs);
       
-      setProcessedData(result);
-      setHasProcessed(true);
+      console.log("Processing complete, result keys:", Object.keys(result));
       
-      toast({
-        title: "Processing complete",
-        description: `Split ${csvData.length} records into ${Object.keys(result).length} files`,
-      });
+      if (Object.keys(result).length === 0) {
+        toast({
+          title: "No splits created",
+          description: "Check your configuration and try again",
+          variant: "destructive",
+        });
+      } else {
+        setProcessedData(result);
+        setHasProcessed(true);
+        
+        toast({
+          title: "Processing complete",
+          description: `Split ${csvData.length} records into ${Object.keys(result).length} files`,
+        });
+      }
     } catch (error) {
       console.error("Processing error:", error);
       toast({

@@ -103,97 +103,135 @@ export const splitData = (
   const result: Record<string, Record<string, string>[]> = {};
   
   // If no data to split, return empty result
-  if (data.length === 0) {
+  if (data.length === 0 || configs.length === 0) {
     return result;
   }
   
   console.log(`splitData called with ${data.length} records and ${configs.length} configurations`);
   
-  // Process each configuration
-  let startIndex = 0;
-  let nonZeroSplitSizesCount = configs.filter(c => c.splitSize > 0).length;
-  let configsWithoutSplitSizeCount = configs.filter(c => c.splitSize === 0).length;
+  // Create a copy of data to work with
+  let remainingData = [...data];
+  let totalAllocated = 0;
   
-  // Special case: If we have all split sizes provided but they don't add up to the total,
-  // we need to create an additional "remainder" file
-  let totalSpecifiedRecords = configs.reduce((sum, config) => sum + (config.splitSize > 0 ? config.splitSize : 0), 0);
-  let needsRemainder = totalSpecifiedRecords > 0 && totalSpecifiedRecords < data.length && nonZeroSplitSizesCount === configs.length;
-  
-  // Assign records to each split based on the configuration
-  configs.forEach((config, index) => {
+  // First, handle all configurations with specified split sizes
+  // Process all configurations with specified split sizes first
+  for (let i = 0; i < configs.length; i++) {
+    const config = configs[i];
     const { accountName, sentType, splitSize } = config;
-    
-    // Determine the number of records for this split
-    let recordsForThisSplit: number;
-    
-    if (splitSize > 0) {
-      // Use the specified split size, but don't exceed available records
-      recordsForThisSplit = Math.min(splitSize, data.length - startIndex);
-    } else if (configsWithoutSplitSizeCount > 0) {
-      // Distribute remaining records evenly among configs without split sizes
-      const remainingRecords = data.length - totalSpecifiedRecords;
-      recordsForThisSplit = Math.ceil(remainingRecords / configsWithoutSplitSizeCount);
-      configsWithoutSplitSizeCount--; // Decrement for next iteration
-    } else {
-      // Default behavior: if no split sizes specified at all, distribute evenly
-      recordsForThisSplit = Math.ceil(data.length / configs.length);
-    }
-    
-    // Ensure we don't exceed available records
-    recordsForThisSplit = Math.min(recordsForThisSplit, data.length - startIndex);
-    
-    console.log(`Split for ${accountName}_${sentType}: ${recordsForThisSplit} records starting at index ${startIndex}`);
-    
-    // Create the split and add to results
     const key = `${accountName}_${sentType}`;
-    result[key] = [];
     
-    // Add the records to this split
-    for (let i = startIndex; i < startIndex + recordsForThisSplit && i < data.length; i++) {
-      result[key].push({
-        ...data[i],
-        account: accountName,
-        sent: sentType
-      });
-    }
+    // Skip configs with no split size for now
+    if (splitSize <= 0) continue;
     
-    // Move the index for the next split
-    startIndex += recordsForThisSplit;
+    // Calculate how many records to allocate to this split
+    // Don't exceed the remaining records
+    const recordsToAllocate = Math.min(splitSize, remainingData.length);
     
-    // Special case: When only one configuration is provided, create a remainder split
-    if (configs.length === 1 && startIndex < data.length) {
-      const remainderKey = `${accountName}_${sentType}_remainder`;
-      result[remainderKey] = [];
+    if (recordsToAllocate > 0) {
+      console.log(`Allocating ${recordsToAllocate} records to ${key} (specified split size)`);
       
-      for (let i = startIndex; i < data.length; i++) {
-        result[remainderKey].push({
-          ...data[i],
+      // Initialize the array for this split if needed
+      result[key] = [];
+      
+      // Add records to this split
+      for (let j = 0; j < recordsToAllocate; j++) {
+        result[key].push({
+          ...remainingData[j],
           account: accountName,
-          sent: `${sentType}_remainder`
+          sent: sentType
         });
       }
       
-      console.log(`Created remainder split ${remainderKey} with ${data.length - startIndex} records`);
-      startIndex = data.length; // Update startIndex to avoid further processing
+      // Remove the allocated records from remainingData
+      remainingData = remainingData.slice(recordsToAllocate);
+      totalAllocated += recordsToAllocate;
     }
-  });
+  }
   
-  // If we've processed all configs but still have records left and all configs had split sizes,
-  // create a remainder split using the last config's information
-  if (startIndex < data.length && needsRemainder) {
-    const lastConfig = configs[configs.length - 1];
-    const remainderKey = `${lastConfig.accountName}_${lastConfig.sentType}_remainder`;
+  // Count configs with no specified size
+  const configsWithNoSize = configs.filter(c => c.splitSize <= 0).length;
+  
+  // If there are still records left and configs with no specified size
+  if (remainingData.length > 0 && configsWithNoSize > 0) {
+    // Calculate records per remaining config (approximate equal distribution)
+    const recordsPerConfig = Math.ceil(remainingData.length / configsWithNoSize);
+    
+    let configsProcessed = 0;
+    
+    // Process configs with no specified size
+    for (const config of configs) {
+      if (config.splitSize > 0) continue; // Skip configs with specified size
+      
+      const { accountName, sentType } = config;
+      const key = `${accountName}_${sentType}`;
+      
+      // For the last config, give all remaining records
+      const recordsToAllocate = (configsProcessed === configsWithNoSize - 1)
+        ? remainingData.length
+        : Math.min(recordsPerConfig, remainingData.length);
+      
+      if (recordsToAllocate > 0) {
+        console.log(`Allocating ${recordsToAllocate} records to ${key} (unspecified split size)`);
+        
+        // Initialize the array for this split if needed
+        result[key] = [];
+        
+        // Add records to this split
+        for (let j = 0; j < recordsToAllocate; j++) {
+          result[key].push({
+            ...remainingData[j],
+            account: accountName,
+            sent: sentType
+          });
+        }
+        
+        // Remove the allocated records from remainingData
+        remainingData = remainingData.slice(recordsToAllocate);
+      }
+      
+      configsProcessed++;
+    }
+  }
+  
+  // Handle special case for only 1 configuration
+  if (configs.length === 1 && configs[0].splitSize > 0 && remainingData.length > 0) {
+    const config = configs[0];
+    const remainderKey = `${config.accountName}_${config.sentType}_remainder`;
+    
+    console.log(`Creating remainder split ${remainderKey} with ${remainingData.length} records`);
+    
+    // Initialize the array for this split
     result[remainderKey] = [];
     
-    for (let i = startIndex; i < data.length; i++) {
+    // Add remaining records to this split
+    for (const record of remainingData) {
       result[remainderKey].push({
-        ...data[i],
+        ...record,
+        account: config.accountName,
+        sent: `${config.sentType}_remainder`
+      });
+    }
+  }
+  
+  // Special case for multiple configurations with all split sizes specified
+  if (configs.length > 1 && configsWithNoSize === 0 && remainingData.length > 0) {
+    // Use the last config for the remainder
+    const lastConfig = configs[configs.length - 1];
+    const remainderKey = `${lastConfig.accountName}_${lastConfig.sentType}_remainder`;
+    
+    console.log(`Creating remainder split ${remainderKey} with ${remainingData.length} records`);
+    
+    // Initialize the array for this split
+    result[remainderKey] = [];
+    
+    // Add remaining records to this split
+    for (const record of remainingData) {
+      result[remainderKey].push({
+        ...record,
         account: lastConfig.accountName,
         sent: `${lastConfig.sentType}_remainder`
       });
     }
-    
-    console.log(`Created balance remainder split ${remainderKey} with ${data.length - startIndex} records`);
   }
   
   // Final log of results
